@@ -27,7 +27,7 @@ HTTP/1.1 404 Not Found\r\n\r\n
 """
 
 http_response400 = """\
-HTTP/1.1 404 Bad Request\r\n\r\n
+HTTP/1.1 400 Bad Request\r\n\r\n
 
 <html><head></head><body><h1>400 Bad Request</h1></body></html>\r\n
 """
