@@ -3,8 +3,9 @@ import socket, select
 #classe para o usuario
 class User:
 
-    def __init__(self, socket):
-        self.socket = socket
+    def __init__(self, addr):
+        self.ip = addr[0]
+        self.port = addr[1]
         self.nickname = None
     #troca o nome dos usuarios
     def changeNickname(self, name):
@@ -21,14 +22,16 @@ def broadcast(s,serverSocket,connections, msg):
                 connections.remove(socket)
 
 #detecta o usuario a partir do seu socket
-def detectUser(s,connections,users):
-    for user in users:
-        for socket in connections:
-            if s == user.socket:
-                return user
-            else:
-                continue
-
+def detectUser(s,users):
+    u = None
+    for i in range(0,len(users)):
+        print (str(s) + " "+ str(users[i].port) + "\n")
+        if s == users[i].port:
+            u = users[i]
+            break
+        else:
+            continue
+    return u
 
 def main():
     # definicao das variaveis
@@ -37,7 +40,7 @@ def main():
 
     recvBuffer = 4096
     serverName = '0.0.0.0' # ip do servidor
-    serverPort = 12000 # porta a se conectar
+    serverPort = 1200 # porta a se conectar
     serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) # criacao do socket TCP
     serverSocket.bind((serverName,serverPort)) # bind do ip do servidor com a porta
     serverSocket.listen(10) # socket pronto para "ouvir" conexoes
@@ -55,7 +58,7 @@ def main():
                 #conexao recebida atraves do serverSocket
                 connectionSocket, addr = serverSocket.accept()
 
-                u = User(connectionSocket)
+                u = User(addr)
                 connectionSocket.send("Por favor, escolha um nickname \n")
                 data = connectionSocket.recv(recvBuffer)
 
@@ -68,16 +71,22 @@ def main():
                 connections.append(connectionSocket)
                 print("Cliente ({},{}), Nick {}".format(addr[0], addr[1], u.nickname))
                 broadcast(connectionSocket,serverSocket,connections, "[{} entrou na sala]\n".format(u.nickname))
-            #mensagem vindo de algum cliente
+            #mensagem vinda de algum cliente
             else:
-                u = detectUser(s,connections,users)
+                u = detectUser(s.getpeername()[1],users)
                 try:
                     data = s.recv(recvBuffer)
                     if data:
                         if data.rstrip('\n') == '/listar':
                             s.send("Usuarios online: \n")
                             for i in range(0,len(users)):
-                                s.send("{} - {}\n".format(i, users[i].nickname))
+                                s.send("<{},{},{}>\n".format(users[i].nickname, users[i].ip, users[i].port))
+                        elif data.rstrip('\n') == '/sair':
+                            broadcast(s,serverSocket,connections,"{} esta offline\n".format(u.nickname))
+                            print("Cliente ({}:{}) esta offline".format(u.ip, u.port))
+                            s.close()
+                            connections.remove(s)
+                            users.remove(u)
                         else:
                             broadcast(s,serverSocket,connections,'<{}> {}'.format(u.nickname, data))
                 except:
