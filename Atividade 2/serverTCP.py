@@ -1,4 +1,4 @@
-import socket, select
+import socket, select, datetime
 
 #classe para o usuario
 class User:
@@ -31,8 +31,34 @@ def detectUser(s,users):
             continue
     return u
 
+#gerencia os floods
+def flood(socket,date, floodList, dateList):
+
+        sec = datetime.timedelta(seconds=2)
+        floodList.append(socket)
+        dateList.append(date)
+
+        if(len(floodList) == 2 and floodList[0] != floodList[1]):
+            floodList[:] = []
+            dateList[:] = []
+            return false
+        elif len(floodList) == 5 and (dateList[4]-dateList[0] <= sec):
+            f = (floodList[1:] == floodList[:-1])
+            floodList[:] = []
+            dateList[:] = []
+            return f
+        elif len(floodList) == 5 and not (dateList[4]-dateList[0] <= sec):
+            floodList[:] = []
+            dateList[:] = []
+            return False
+        else:
+            return False
+
 #codigo principal
 def main():
+    floodList = []
+    dateList = []
+
     # definicao das variaveis
     connections = [] #lista para armazenar conexoes, incluindo o servidor
     users = [] #lista para armazenar usuarios
@@ -48,7 +74,6 @@ def main():
 
     print("Chat iniciado na porta {}".format(serverPort))
     #print("Comandos")
-    #print("/listar - lista todos os usuarios")
     #print("/sair - encerra o chat")
 
 
@@ -80,39 +105,44 @@ def main():
                 broadcast(connectionSocket,serverSocket,connections, "[{} entrou na sala]\n".format(u.nickname))
             #mensagem vindo de algum cliente
             else:
-                u = detectUser(s.getpeername()[1],users)
-                try:
-                    data = s.recv(recvBuffer)
-                    if data:
-                        if data.rstrip('\n') == '/listar':
-                            s.send("Usuarios online: \n")
-                            for i in range(0,len(users)):
-                                s.send("<{},{},{}>\n".format(users[i].nickname, users[i].ip, users[i].port))
+                data = datetime.datetime.now()
+                if flood(s, data, floodList, dateList):
+                    s.send("Alerta de flood, espere um pouco\n")
+                    #acho que da pra melhorar isso com thread.sleep()                    
+                else:
+                    u = detectUser(s.getpeername()[1],users)
+                    try:
+                        data = s.recv(recvBuffer)
+                        if data:
+                            if data.rstrip('\n') == '/listar':
+                                s.send("Usuarios online: \n")
+                                for i in range(0,len(users)):
+                                    s.send("<{},{},{}>\n".format(users[i].nickname, users[i].ip, users[i].port))
 
-                        elif data.rstrip(data[11:]) == '/trocarnick':
-                             newNick = data[11:].rstrip('\n')
-                             oldNick = u.nickname
-                             u.changeNickname(newNick)
-                             s.send("Voce mudou de {} para {}\n".format(oldNick, newNick))
-                             broadcast(s,serverSocket, connections, "{} mudou o nick para {}\n".format(oldNick, newNick))
-                             print("{} mudou o nick para {}".format(oldNick, newNick))
-                             print("Cliente ({},{}), Nick {}".format(addr[0], addr[1], u.nickname))
+                            elif data.rstrip(data[11:]) == '/trocarnick':
+                                 newNick = data[11:].rstrip('\n')
+                                 oldNick = u.nickname
+                                 u.changeNickname(newNick)
+                                 s.send("Voce mudou de {} para {}\n".format(oldNick, newNick))
+                                 broadcast(s,serverSocket, connections, "{} mudou o nick para {}\n".format(oldNick, newNick))
+                                 print("{} mudou o nick para {}".format(oldNick, newNick))
+                                 print("Cliente ({},{}), Nick {}".format(addr[0], addr[1], u.nickname))
 
-                        elif data.rstrip('\n') == '/sair':
-                            broadcast(s,serverSocket,connections,"{} saiu do chat\n".format(u.nickname))
-                            print("Cliente ({}:{}) esta offline".format(u.ip, u.port))
-                            s.close()
-                            connections.remove(s)
-                            users.remove(u)
-                        else:
-                            broadcast(s,serverSocket,connections,'<{}> {}'.format(u.nickname, data))
-                except:
-                    broadcast(s,serverSocket,connections,"{} esta offline\n".format(u.nickname))
-                    print("Cliente ({}:{}) esta offline".format(addr[0], addr[1]))
-                    s.close()
-                    connections.remove(s)
-                    users.remove(u)
-                    continue
+                            elif data.rstrip('\n') == '/sair':
+                                broadcast(s,serverSocket,connections,"{} saiu do chat\n".format(u.nickname))
+                                print("Cliente ({}:{}) esta offline".format(u.ip, u.port))
+                                s.close()
+                                connections.remove(s)
+                                users.remove(u)
+                            else:
+                                broadcast(s,serverSocket,connections,'<{}> {}'.format(u.nickname, data))
+                    except:
+                        broadcast(s,serverSocket,connections,"{} esta offline\n".format(u.nickname))
+                        print("Cliente ({}:{}) esta offline".format(addr[0], addr[1]))
+                        s.close()
+                        connections.remove(s)
+                        users.remove(u)
+                        continue
     serverSocket.close()
 
 if __name__ == "__main__":
