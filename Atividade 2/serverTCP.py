@@ -6,7 +6,7 @@ class User:
     def __init__(self, socket):
         self.socket = socket
         self.nickname = None
-    #troca nome dos usuarios
+    #troca o nome dos usuarios
     def changeNickname(self, name):
         self.nickname = name
 
@@ -29,14 +29,15 @@ def detectUser(s,connections,users):
             else:
                 continue
 
+
 def main():
     # definicao das variaveis
     connections = [] #lista para armazenar conexoes, incluindo o servidor
     users = [] #lista para armazenar usuarios
 
     recvBuffer = 4096
-    serverName = '0.0.0.0' # ip do servidor (em branco)
-    serverPort = 1200 # porta a se conectar
+    serverName = '0.0.0.0' # ip do servidor
+    serverPort = 12000 # porta a se conectar
     serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) # criacao do socket TCP
     serverSocket.bind((serverName,serverPort)) # bind do ip do servidor com a porta
     serverSocket.listen(10) # socket pronto para "ouvir" conexoes
@@ -73,9 +74,14 @@ def main():
                 try:
                     data = s.recv(recvBuffer)
                     if data:
-                        broadcast(s,serverSocket,connections,'<{}> {}'.format(u.nickname, data))
+                        if data.rstrip('\n') == '/listar':
+                            s.send("Usuarios online: \n")
+                            for i in range(0,len(users)):
+                                s.send("{} - {}\n".format(i, users[i].nickname))
+                        else:
+                            broadcast(s,serverSocket,connections,'<{}> {}'.format(u.nickname, data))
                 except:
-                    broadcast(s,serverSocket,connections,"{} esta offline".format(u.nickname))
+                    broadcast(s,serverSocket,connections,"{} esta offline\n".format(u.nickname))
                     print("Cliente ({}:{}) esta offline".format(addr[0], addr[1]))
                     s.close()
                     connections.remove(s)
