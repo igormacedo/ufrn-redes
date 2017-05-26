@@ -1,14 +1,12 @@
-# telnet program example
 import socket, select, string, sys
 
 def prompt() :
     sys.stdout.write('<You> ')
     sys.stdout.flush()
 
-#main function
-
+#funcao principal
 if(len(sys.argv) < 3) :
-    print 'Usage : python telnet.py hostname port'
+    print ('Como usar: python clientTCP.py host porta')
     sys.exit()
 
 host = sys.argv[1]
@@ -17,36 +15,34 @@ port = int(sys.argv[2])
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.settimeout(2)
 
-# connect to remote host
+#Conectar a um servidor
 try :
     s.connect((host, port))
 except :
-    print 'Unable to connect'
+    print ('Nao foi possivel se conectar')
     sys.exit()
 
-print 'Connected to remote host. Start sending messages'
-prompt()
+print ('Conectado ao servidor.')
 
-while 1:
-    socket_list = [sys.stdin, s]
+while (1):
+    socketList = [sys.stdin, s]
 
-    # Get the list sockets which are readable
-    read_sockets, write_sockets, error_sockets = select.select(socket_list , [], [])
+    #recebe a lista de sockets prontos para leitura
+    readSockets, writeSockets,errorSockets = select.select(socketList , [], [])
 
-    for sock in read_sockets:
-        #incoming message from remote server
+    for sock in readSockets:
+        #mensagem vinda do servidor
         if sock == s:
             data = sock.recv(4096)
             if not data :
-                print '\nDisconnected from chat server'
+                print ('\nDesconectado do servidor')
                 sys.exit()
-            else :
+            else:
                 #print data
                 sys.stdout.write(data)
-                prompt()
 
-        #user entered a message
+
+        #mensagem enviada pelo cliente
         else :
             msg = sys.stdin.readline()
             s.send(msg)
-            prompt()

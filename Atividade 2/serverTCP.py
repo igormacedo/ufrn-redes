@@ -42,7 +42,7 @@ def main():
     serverPort = 12000 # porta a se conectar
     serverSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) # criacao do socket TCP
     serverSocket.bind((serverName,serverPort)) # bind do ip do servidor com a porta
-    serverSocket.listen(10) # socket pronto para "ouvir" conexoes
+    serverSocket.listen(100) # socket pronto para "ouvir" conexoes
 
     connections.append(serverSocket)
 
