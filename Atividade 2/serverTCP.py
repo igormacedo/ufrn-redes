@@ -1,13 +1,15 @@
 import sys
 import socket
 import select
-import datetime
+import datetime,time
 import threading as t
 
 
 #variaveis globais
 CLIENTS = {}
 USERS = {}
+FLOOD = []
+DATES = []
 recvBuffer = 4096
 
 #classe para o usuario
@@ -16,6 +18,7 @@ class User:
         self.ip = addr[0]
         self.port = addr[1]
         self.nickname = None
+        self.block = False
     #troca o nome dos usuarios
     def changeNickname(self, name):
         self.nickname = name
@@ -43,24 +46,27 @@ def detectUser(s,users):
     return u
 
 #gerencia os floods
-def flood(socket, date, floodList, dateList):
+def flood(socket, date):
 
         sec = datetime.timedelta(seconds=2)
-        floodList.append(socket)
-        dateList.append(date)
+        FLOOD.append(socket)
+        DATES.append(date)
 
-        if(len(floodList) == 2 and floodList[0] != floodList[1]):
-            floodList[:] = []
-            dateList[:] = []
-            return false
-        elif len(floodList) == 5 and (dateList[4]-dateList[0] <= sec):
-            f = (floodList[1:] == floodList[:-1])
-            floodList[:] = []
-            dateList[:] = []
+        if(len(FLOOD) == 2 and FLOOD[0] != FLOOD[1]):
+            FLOOD[0] = FLOOD[1]
+            DATES[0] = DATES[1]
+            DATES.pop(1)
+            FLOOD.pop(1)
+            return False
+        #flood
+        elif len(FLOOD) == 5 and (DATES[4]-DATES[0] <= sec):
+            f = (FLOOD[1:] == FLOOD[:-1])
+            FLOOD[:] = []
+            DATES[:] = []
             return f
-        elif len(floodList) == 5 and not (dateList[4]-dateList[0] <= sec):
-            floodList[:] = []
-            dateList[:] = []
+        elif len(FLOOD) == 5 and not (DATES[4]-DATES[0] <= sec):
+            FLOOD[:] = []
+            DATES[:] = []
             return False
         else:
             return False
@@ -114,7 +120,14 @@ def clientConnection(clientSocket, user):
                     USERS.pop(id)
                     break
                 else:
-                    broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
+                    if not flood(clientSocket,datetime.datetime.now()):
+                        broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
+                    else:
+                        clientSocket.send("block")                    
+                        time.sleep(10)
+                        clientSocket.send("unblock")
+
+
         except :
             broadcast(clientSocket,"{} esta offline\n".format(user.nickname))
             print("Cliente ({}:{}) esta offline".format(user.ip, user.port))

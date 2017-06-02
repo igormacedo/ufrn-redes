@@ -5,6 +5,7 @@ import threading as t
 import time
 
 kill = False
+block = False
 
 def receiveData(conn):
     global kill
@@ -13,13 +14,20 @@ def receiveData(conn):
         if msg == "kill":
             kill = True
             break
+        elif msg == "block":
+            block = True
+        elif msg == "unblock":
+            block = False
         print msg
 
 def sendData(conn):
     global kill
     while not kill:
-        msg = raw_input()
-        conn.send(msg)
+        if not block:
+            msg = raw_input()
+            conn.send(msg)
+        else:
+            print ("Voce foi bloqueado por flood, aguarde um pouco")
 
 #funcao principal
 if(len(sys.argv) < 3) :
