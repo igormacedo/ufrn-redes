@@ -10,43 +10,30 @@ block = False
 def receiveData(conn):
     global kill
     while not kill:
-<<<<<<< HEAD
-        msg = conn.recv(4096)
-        if msg == "kill":
-            kill = True
-            break
-        elif msg == "block":
-            block = True
-        elif msg == "unblock":
-            block = False
-        print msg
-=======
         try:
             msg = conn.recv(4096)
             if msg == "kill":
                 kill = True
                 break
+            elif msg == "block":
+                block = True
+            elif msg == "unblock":
+                block = False
             print msg
         except:
             pass
->>>>>>> a65553783097818a3d8c43437731600bdb5e9967
 
 def sendData(conn):
     global kill
     while not kill:
-<<<<<<< HEAD
         if not block:
             msg = raw_input()
-            conn.send(msg)
+            try:
+                conn.send(msg)
+            except:
+                pass
         else:
             print ("Voce foi bloqueado por flood, aguarde um pouco")
-=======
-        msg = raw_input()
-        try:
-            conn.send(msg)
-        except:
-            pass
->>>>>>> a65553783097818a3d8c43437731600bdb5e9967
 
 #funcao principal
 if(len(sys.argv) < 3) :

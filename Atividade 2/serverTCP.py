@@ -121,22 +121,14 @@ def clientConnection(clientSocket, user):
                     USERS.pop(id)
                     break
                 else:
-<<<<<<< HEAD
                     if not flood(clientSocket,datetime.datetime.now()):
                         broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
                     else:
-                        clientSocket.send("block")                    
+                        clientSocket.send("block")
                         time.sleep(10)
                         clientSocket.send("unblock")
-
-
-        except :
-            broadcast(clientSocket,"{} esta offline\n".format(user.nickname))
-=======
-                    broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
         except:
             broadcast(clientSocket,"{} esta offline".format(user.nickname))
->>>>>>> a65553783097818a3d8c43437731600bdb5e9967
             print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
             clientSocket.close()
             CLIENTS.pop(id)
