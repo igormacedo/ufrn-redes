@@ -9,17 +9,23 @@ kill = False
 def receiveData(conn):
     global kill
     while not kill:
-        msg = conn.recv(4096)
-        if msg == "kill":
-            kill = True
-            break
-        print msg
+        try:
+            msg = conn.recv(4096)
+            if msg == "kill":
+                kill = True
+                break
+            print msg
+        except:
+            pass
 
 def sendData(conn):
     global kill
     while not kill:
         msg = raw_input()
-        conn.send(msg)
+        try:
+            conn.send(msg)
+        except:
+            pass
 
 #funcao principal
 if(len(sys.argv) < 3) :
@@ -38,22 +44,28 @@ except :
     print ('Nao foi possivel se conectar')
     sys.exit()
 
+s.setblocking(0)
 print ('Conectado ao servidor.')
 
 
-t.Thread(target=receiveData,
+rec = t.Thread(target=receiveData,
         name="receiveData",
-        args=(s,)).start()
+        args=(s,))
+rec.daemon = True
+rec.start()
 
-t.Thread(target=sendData,
+sed = t.Thread(target=sendData,
         name="sendData",
-        args=(s,)).start()
+        args=(s,))
+sed.daemon = True
+sed.start()
 
 try:
     while not kill:
         time.sleep(1)
 
-    print("Aplicacao terminada. Pressione [enter]")
+    print("Aplicacao terminada!")
+    sys.exit(1)
 
 except KeyboardInterrupt:
     kill = True
