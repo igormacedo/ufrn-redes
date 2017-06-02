@@ -11,6 +11,7 @@ USERS = {}
 FLOOD = []
 DATES = []
 recvBuffer = 4096
+kill = False
 
 #classe para o usuario
 class User:
@@ -87,32 +88,32 @@ def clientConnection(clientSocket, user):
 
     print("Cliente ({},{}), Nick {} entrou na sala".format(user.ip, user.port, user.nickname))
 
-    clientSocket.send("Comandos do chat: \n")
-    clientSocket.send("/listar - lista todos os usuarios\n")
-    clientSocket.send("/trocarnick - muda o nickname\n")
-    clientSocket.send("/sair - encerra o chat\n")
+    clientSocket.send("Comandos do chat:")
+    clientSocket.send("/listar - lista todos os usuarios")
+    clientSocket.send("/trocarnick - muda o nickname")
+    clientSocket.send("/sair - encerra o chat")
 
     broadcast(clientSocket, "[{} entrou na sala]\n".format(user.nickname))
 
-    while True:
+    while not kill:
         try:
             msg = clientSocket.recv(recvBuffer)
             if msg:
                 if msg.rstrip('\n') == '/listar':
-                    clientSocket.send("Usuarios online: \n")
+                    clientSocket.send("Usuarios online:")
                     for u in USERS.values():
-                        clientSocket.send("<{},{},{}>\n".format(u.nickname, u.ip, u.port))
+                        clientSocket.send("<{},{},{}>".format(u.nickname, u.ip, u.port))
 
                 elif msg.rstrip(msg[12:]) == '/trocarnick ':
                      newNick = msg[12:].rstrip('\n')
                      oldNick = user.nickname
                      u.changeNickname(newNick)
-                     clientSocket.send("Voce mudou de {} para {}\n".format(oldNick, newNick))
-                     broadcast(clientSocket, "{} mudou o nick para {}\n".format(oldNick, newNick))
+                     clientSocket.send("Voce mudou de {} para {}".format(oldNick, newNick))
+                     broadcast(clientSocket, "{} mudou o nick para {}".format(oldNick, newNick))
                      print("Cliente ({},{}), Nick {}".format(user.ip, user.port, user.nickname))
 
                 elif msg.rstrip('\n') == '/sair':
-                    broadcast(clientSocket,"{} saiu do chat\n".format(user.nickname))
+                    broadcast(clientSocket,"{} saiu do chat".format(user.nickname))
                     print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
                     clientSocket.send("kill")
                     clientSocket.close()
@@ -120,6 +121,7 @@ def clientConnection(clientSocket, user):
                     USERS.pop(id)
                     break
                 else:
+<<<<<<< HEAD
                     if not flood(clientSocket,datetime.datetime.now()):
                         broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
                     else:
@@ -130,10 +132,33 @@ def clientConnection(clientSocket, user):
 
         except :
             broadcast(clientSocket,"{} esta offline\n".format(user.nickname))
+=======
+                    broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
+        except:
+            broadcast(clientSocket,"{} esta offline".format(user.nickname))
+>>>>>>> a65553783097818a3d8c43437731600bdb5e9967
             print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
             clientSocket.close()
             CLIENTS.pop(id)
             USERS.pop(id)
+
+def serverCommands(server):
+    global kill
+    while not kill:
+        msg = raw_input()
+        if msg == "/sair":
+            for user in USERS.values():
+                id = str(user.ip)+":"+str(user.port)
+                CLIENTS[id].send("Abandon Ship! Server is going down!")
+                CLIENTS[id].send("kill")
+                CLIENTS[id].close()
+                CLIENTS.pop(id)
+                USERS.pop(id)
+            kill = True
+        else:
+            print "Invalid command"
+
+
 
 #codigo principal
 def main():
@@ -147,18 +172,33 @@ def main():
 
     print("Chat iniciado na porta {}".format(serverPort))
 
-    while (1):
+    t.Thread(target=serverCommands,
+            name="serverCommands",
+            args=(serverSocket,)).start()
 
-        clientSocket, addr = serverSocket.accept()
-        user = User(addr)
+    while not kill:
 
-        id = str(user.ip)+":"+str(user.port)
-        CLIENTS[id] = clientSocket
-        USERS[id] = user
+        serverSocket.setblocking(0)
+        try:
+            clientSocket, addr = serverSocket.accept()
+            user = User(addr)
 
-        t.Thread(target=clientConnection,
-                name="client"+str(addr[0])+":"+str(addr[1]),
-                args=(clientSocket, user)).start()
+            id = str(user.ip)+":"+str(user.port)
+            CLIENTS[id] = clientSocket
+            USERS[id] = user
+
+            t.Thread(target=clientConnection,
+                    name="client"+str(addr[0])+":"+str(addr[1]),
+                    args=(clientSocket, user)).start()
+
+        except:
+            pass
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        kill = True
+        print "Server exiting"
+        print "Ctrl-c pressed in main..."
+        sys.exit(1)
