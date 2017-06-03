@@ -20,21 +20,24 @@ class User:
         self.nickname = None
         self.time = []
         self.block = False
-        t.Thread(target=self.floodControl).start()
+        self.first = True
+        #t.Thread(target=self.floodControl).start()
     #troca o nome dos usuarios
     def changeNickname(self, name):
         self.nickname = name
     #controle de flood
     def floodControl(self):
-        while True:
-            if len(self.time) == 5:
-            	if (self.time[4] - self.time[0]) <= TWOSEC:
-                    self.block = True
-                else:
-            		self.block = False
-                self.time = []
-                
-
+        if len(self.time) >= 5:
+            if (self.time[4] - self.time[0]) <= TWOSEC and not self.block and self.first:
+                print("init thread")
+                t.Thread(target=self.floodthread).start()
+    def floodthread(self):
+        self.first = False
+        self.block = True
+        time.sleep(10)
+        self.block = False
+        self.first = True
+        CLIENTS[str(self.ip)+":"+str(self.port)].send("Voce foi desbloqueado!")
 
 #envia mensagens para todos, menos para o servidor e para o remetente
 def broadcast(s, msg):
@@ -71,46 +74,49 @@ def clientConnection(clientSocket, user):
     broadcast(clientSocket, "[{} entrou na sala]\n".format(user.nickname))
 
     while not kill:
-        try:
-            msg = clientSocket.recv(recvBuffer)
-            if msg:
-                if msg.rstrip('\n') == '/listar':
-                    clientSocket.send("Usuarios online:")
-                    for u in USERS.values():
-                        clientSocket.send("<{},{},{}>".format(u.nickname, u.ip, u.port))
+        # try:
+        msg = clientSocket.recv(recvBuffer)
+        if msg:
+            if msg.rstrip('\n') == '/listar':
+                clientSocket.send("Usuarios online:")
+                for u in USERS.values():
+                    clientSocket.send("<{},{},{}>".format(u.nickname, u.ip, u.port))
 
-                elif msg.rstrip(msg[12:]) == '/trocarnick ':
-                     newNick = msg[12:].rstrip('\n')
-                     oldNick = user.nickname
-                     user.changeNickname(newNick)
-                     clientSocket.send("Voce mudou de {} para {}".format(oldNick, newNick))
-                     broadcast(clientSocket, "{} mudou o nick para {}".format(oldNick, newNick))
-                     print("Cliente ({},{}), Nick {}".format(user.ip, user.port, user.nickname))
+            elif msg.rstrip(msg[12:]) == '/trocarnick ':
+                 newNick = msg[12:].rstrip('\n')
+                 oldNick = user.nickname
+                 user.changeNickname(newNick)
+                 clientSocket.send("Voce mudou de {} para {}".format(oldNick, newNick))
+                 broadcast(clientSocket, "{} mudou o nick para {}".format(oldNick, newNick))
+                 print("Cliente ({},{}), Nick {}".format(user.ip, user.port, user.nickname))
 
-                elif msg.rstrip('\n') == '/sair':
-                    broadcast(clientSocket,"{} saiu do chat".format(user.nickname))
-                    print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
-                    clientSocket.send("kill")
-                    clientSocket.close()
-                    CLIENTS.pop(id)
-                    USERS.pop(id)
-                    break
+            elif msg.rstrip('\n') == '/sair':
+                broadcast(clientSocket,"{} saiu do chat".format(user.nickname))
+                print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
+                clientSocket.send("kill")
+                clientSocket.close()
+                CLIENTS.pop(id)
+                USERS.pop(id)
+                break
+            else:
+                if user.block:
+                    clientSocket.send("Voce foi bloqueado por 10s por motivos de: Flood")
                 else:
-                    if user.block:
-                        clientSocket.send("Voce foi bloqueado por 10s por motivos de: Flood")
-                        time.sleep(10)
-                        clientSocket.send("Voce foi desbloqueado")
-                        pass
+                    broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
+                    if len(user.time) >= 5:
+                        user.time.pop(0)
+                        user.time.append(datetime.datetime.now())
                     else:
-                        broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
                         user.time.append(datetime.datetime.now())
 
-        except:
-            broadcast(clientSocket,"{} esta offline".format(user.nickname))
-            print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
-            clientSocket.close()
-            CLIENTS.pop(id)
-            USERS.pop(id)
+                    user.floodControl()
+
+        # except:
+        #     broadcast(clientSocket,"{} esta offline".format(user.nickname))
+        #     print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
+        #     clientSocket.close()
+        #     CLIENTS.pop(id)
+        #     USERS.pop(id)
 
 def serverCommands(server):
     global kill
