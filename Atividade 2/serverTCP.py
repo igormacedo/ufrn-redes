@@ -8,8 +8,7 @@ import threading as t
 #variaveis globais
 CLIENTS = {}
 USERS = {}
-FLOOD = []
-DATES = []
+TWOSEC = datetime.timedelta(seconds=2)
 recvBuffer = 4096
 kill = False
 
@@ -19,10 +18,23 @@ class User:
         self.ip = addr[0]
         self.port = addr[1]
         self.nickname = None
+        self.time = []
         self.block = False
+        t.Thread(target=self.floodControl).start()
     #troca o nome dos usuarios
     def changeNickname(self, name):
         self.nickname = name
+    #controle de flood
+    def floodControl(self):
+        while True:
+            if len(self.time) == 5:
+            	if (self.time[4] - self.time[0]) <= TWOSEC:
+                    self.block = True
+                else:
+            		self.block = False
+                self.time = []
+                
+
 
 #envia mensagens para todos, menos para o servidor e para o remetente
 def broadcast(s, msg):
@@ -34,43 +46,6 @@ def broadcast(s, msg):
             except:
                 socket.close()
                 CLIENTS.pop(socket.fileno())
-
-#detecta o usuario a partir de uma porta
-def detectUser(s,users):
-    u = None
-    for i in range(0,len(users)):
-        if s == users[i].port:
-            u = users[i]
-            break
-        else:
-            continue
-    return u
-
-#gerencia os floods
-def flood(socket, date):
-
-        sec = datetime.timedelta(seconds=2)
-        FLOOD.append(socket)
-        DATES.append(date)
-
-        if(len(FLOOD) == 2 and FLOOD[0] != FLOOD[1]):
-            FLOOD[0] = FLOOD[1]
-            DATES[0] = DATES[1]
-            DATES.pop(1)
-            FLOOD.pop(1)
-            return False
-        #flood
-        elif len(FLOOD) == 5 and (DATES[4]-DATES[0] <= sec):
-            f = (FLOOD[1:] == FLOOD[:-1])
-            FLOOD[:] = []
-            DATES[:] = []
-            return f
-        elif len(FLOOD) == 5 and not (DATES[4]-DATES[0] <= sec):
-            FLOOD[:] = []
-            DATES[:] = []
-            return False
-        else:
-            return False
 
 def clientConnection(clientSocket, user):
 
@@ -107,7 +82,7 @@ def clientConnection(clientSocket, user):
                 elif msg.rstrip(msg[12:]) == '/trocarnick ':
                      newNick = msg[12:].rstrip('\n')
                      oldNick = user.nickname
-                     u.changeNickname(newNick)
+                     user.changeNickname(newNick)
                      clientSocket.send("Voce mudou de {} para {}".format(oldNick, newNick))
                      broadcast(clientSocket, "{} mudou o nick para {}".format(oldNick, newNick))
                      print("Cliente ({},{}), Nick {}".format(user.ip, user.port, user.nickname))
@@ -121,12 +96,15 @@ def clientConnection(clientSocket, user):
                     USERS.pop(id)
                     break
                 else:
-                    if not flood(clientSocket,datetime.datetime.now()):
-                        broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
-                    else:
-                        clientSocket.send("block")
+                    if user.block:
+                        clientSocket.send("Voce foi bloqueado por 10s por motivos de: Flood")
                         time.sleep(10)
-                        clientSocket.send("unblock")
+                        clientSocket.send("Voce foi desbloqueado")
+                        pass
+                    else:
+                        broadcast(clientSocket,'<{}> {}'.format(user.nickname, msg))
+                        user.time.append(datetime.datetime.now())
+
         except:
             broadcast(clientSocket,"{} esta offline".format(user.nickname))
             print("Cliente ({}:{}) esta offline".format(user.ip, user.port))
